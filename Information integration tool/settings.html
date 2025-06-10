@@ -1,28 +1,31 @@
 <!--
     高级信息栏 (Advanced InfoBar) 扩展设置界面
-    版本: 11.0.0
-    这是设置界面的静态HTML结构。
+    版本: 11.0.0 (Production)
 -->
 <div id="advanced-infobar-settings-popup-wrapper">
+    <!-- 设置弹窗 -->
     <div id="advanced-infobar-settings-popup-overlay" class="infobar-popup-overlay" style="display: none;"></div>
     <div id="advanced-infobar-settings-popup" class="infobar-popup" style="display: none;">
         <button class="infobar-close-button" title="关闭"><i class="fa-solid fa-times"></i></button>
         <div class="infobar-main-content">
             <div class="infobar-tab-container">
-                <!-- Tab按钮将由JS根据PANEL_CONFIG动态生成并插入此处 -->
+                <!-- Tab按钮将由JS动态生成并插入此处 -->
             </div>
             <div class="infobar-content-container">
-                <!-- 面板内容将由JS根据PANEL_CONFIG动态生成并插入此处 -->
+                <!-- 面板内容将由JS动态生成并插入此处 -->
             </div>
         </div>
     </div>
 
-    <!-- 数据表格弹窗的骨架 -->
+    <!-- 数据表格弹窗 -->
     <div id="advanced-infobar-datatable-popup-overlay" class="infobar-popup-overlay" style="display: none;"></div>
     <div id="advanced-infobar-datatable-popup" class="infobar-popup" style="display: none;">
          <button class="infobar-close-button" title="关闭"><i class="fa-solid fa-times"></i></button>
          <div class="datatable-container">
-             <h3>数据表格</h3>
+             <div class="datatable-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;">数据表格 (实时预览与编辑)</h3>
+                <button id="infobar-datatable-save-and-refresh" class="menu_button">保存并刷新信息栏</button>
+             </div>
              <div class="datatable-panel-wrapper">
                  <!-- 数据表格内容将由JS动态生成并插入此处 -->
              </div>
