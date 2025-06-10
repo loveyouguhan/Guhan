@@ -1,43 +1,114 @@
 /*
     高级信息栏 (Advanced InfoBar) 扩展服务器端脚本
     版本: 11.0.0
+    阶段3: 实现服务器端API和持久化数据存储
 */
-import { extension_settings, loadExtensionSettings } from '../../../../extensions.js';
+import { extension_settings } from '../../../../extensions.js';
+import { getRequest, sendResponse } from '../../../../routes.js';
 import { eventSource, event_types } from '../../../../events.js';
+import express from 'express';
+import fs from 'fs/promises';
+import path from 'path';
 
-// 扩展的名称，必须与config.json中的name字段匹配
 const extensionName = "高级信息栏 (Advanced InfoBar)";
+const dataDir = path.join(new URL(import.meta.url).pathname, '..', 'data');
+const settingsFilePath = path.join(dataDir, 'settings.json');
+const chatDataFilePath = path.join(dataDir, 'chat_data.json');
 
-// 扩展的默认设置
-const defaultSettings = {
-    // 第三阶段：
-    // 在这里定义全局设置的默认值
-    // 例如: defaultTheme: '现代深色'
-};
+// ------------------- 文件 I/O 辅助函数 -------------------
 
-// 加载扩展设置
-async function loadSettings() {
-    // 这会从SillyTavern的config/extensions_settings.json中加载本扩展的设置
-    // 如果没有设置，则使用上面的defaultSettings
-    Object.assign(extension_settings[extensionName], {
-        ...defaultSettings,
-        ...(extension_settings[extensionName] || {}),
-    });
+async function ensureDataDirExists() {
+    try {
+        await fs.mkdir(dataDir, { recursive: true });
+    } catch (error) {
+        console.error(`[${extensionName}] Failed to create data directory:`, error);
+    }
 }
 
-// SillyTavern启动时执行的入口函数
-(async function () {
-    console.log(`[高级信息栏] 服务器端脚本 (index.js) 已加载。`);
-    
-    // 加载设置
-    await loadSettings();
+async function readDataFile(filePath, defaultValue = {}) {
+    try {
+        await fs.access(filePath);
+        const data = await fs.readFile(filePath, 'utf-8');
+        return JSON.parse(data);
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            // 文件不存在，返回默认值并尝试创建文件
+            await writeDataFile(filePath, defaultValue);
+            return defaultValue;
+        }
+        console.error(`[${extensionName}] Error reading file ${filePath}:`, error);
+        return defaultValue;
+    }
+}
 
-    // 第三阶段：
-    // 1. 定义API端点 (使用SillyTavern的Express app实例)
-    //    - GET /api/extensions/advanced-infobar/settings
-    //    - POST /api/extensions/advanced-infobar/settings
-    //    - GET /api/extensions/advanced-infobar/data
-    //    - POST /api/extensions/advanced-infobar/data
-    // 2. 实现数据的持久化读写逻辑 (例如，读写一个JSON文件)
-    // 3. 监听SillyTavern的服务器端事件
+async function writeDataFile(filePath, data) {
+    try {
+        await fs.writeFile(filePath, JSON.stringify(data, null, 4), 'utf-8');
+    } catch (error) {
+        console.error(`[${extensionName}] Error writing to file ${filePath}:`, error);
+    }
+}
+
+
+// ------------------- SillyTavern 扩展入口 -------------------
+
+(async function () {
+    console.log(`[${extensionName}] 服务器端脚本 (index.js) 已加载。`);
+    
+    // 确保数据目录存在
+    await ensureDataDirExists();
+
+    // 获取SillyTavern的Express app实例
+    const app = getRequest();
+
+    // ------------------- API 端点定义 -------------------
+
+    // 1. 获取全局设置
+    app.get('/api/extensions/advanced-infobar/settings', async (req, res) => {
+        console.log(`[${extensionName}] GET /settings - 正在读取全局设置...`);
+        const settings = await readDataFile(settingsFilePath, {});
+        res.json(settings);
+    });
+
+    // 2. 保存全局设置
+    app.post('/api/extensions/advanced-infobar/settings', express.json(), async (req, res) => {
+        const newSettings = req.body;
+        console.log(`[${extensionName}] POST /settings - 正在保存全局设置...`);
+        if (!newSettings || typeof newSettings !== 'object') {
+            return res.status(400).json({ error: 'Invalid settings data' });
+        }
+        await writeDataFile(settingsFilePath, newSettings);
+        res.json({ success: true, message: 'Settings saved successfully.' });
+    });
+
+    // 3. 获取指定聊天的信息栏数据
+    app.get('/api/extensions/advanced-infobar/data', async (req, res) => {
+        const { chatId } = req.query;
+        if (!chatId) {
+            return res.status(400).json({ error: 'chatId is required' });
+        }
+        console.log(`[${extensionName}] GET /data - 正在为聊天 ${chatId} 读取数据...`);
+        const allChatData = await readDataFile(chatDataFilePath, {});
+        const chatData = allChatData[chatId] || { npcs: {} }; // 如果没有该聊天的数据，返回初始对象
+        res.json(chatData);
+    });
+
+    // 4. 保存指定聊天的信息栏数据
+    app.post('/api/extensions/advanced-infobar/data', express.json(), async (req, res) => {
+        const { chatId } = req.query;
+        const newChatData = req.body;
+        if (!chatId) {
+            return res.status(400).json({ error: 'chatId is required' });
+        }
+        if (!newChatData || typeof newChatData !== 'object') {
+            return res.status(400).json({ error: 'Invalid chat data' });
+        }
+        console.log(`[${extensionName}] POST /data - 正在为聊天 ${chatId} 保存数据...`);
+        const allChatData = await readDataFile(chatDataFilePath, {});
+        allChatData[chatId] = newChatData;
+        await writeDataFile(chatDataFilePath, allChatData);
+        res.json({ success: true, message: `Data for chat ${chatId} saved.` });
+    });
+
+    console.log(`[${extensionName}] API端点已成功注册。`);
 })();
