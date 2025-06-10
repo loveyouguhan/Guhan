@@ -1,0 +1,10 @@
+{
+    "name": "高级信息栏 (Advanced InfoBar)",
+    "version": "11.0.0",
+    "author": "YourName & AI Assistant",
+    "description": "一个功能强大的、可高度自定义的信息栏系统，用于实时追踪和展示剧情中的各种数据。",
+    "settings": "settings.html",
+    "style": "style.css",
+    "script": "script.js",
+    "index": "index.js"
+}
